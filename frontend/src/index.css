@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@import "tailwindcss";
+
+/* THIS IS THE V4 MAGIC LINE: 
+  It tells Tailwind to apply 'dark:' utilities whenever a parent has the '.dark' class 
+*/
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Modern, sleek scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 10px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: #334155;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #14b8a6;
+}
