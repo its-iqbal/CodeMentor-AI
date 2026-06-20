@@ -55,7 +55,7 @@ function App() {
         return;
       }
 
-      const response = await fetch(`https://codementor-ai-tb3l.onrender.com//api/review/${sessionId}`);
+      const response = await fetch(`https://codementor-ai-tb3l.onrender.com/api/review/${sessionId}`);
       if (!response.ok) throw new Error("Failed to fetch history");
       
       const data = await response.json();
