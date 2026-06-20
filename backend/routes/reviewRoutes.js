@@ -1,10 +1,11 @@
-// backend/routes/reviewRoutes.js
 const express = require('express');
 const router = express.Router();
-const { createReview } = require('../controllers/reviewController');
+const { createReview, getReviewHistory } = require('../controllers/reviewController');
 
-// Because this route will be mounted at '/api/review' in server.js, 
-// the '/' here actually represents '/api/review'
+// POST request to submit a new review
 router.post('/', createReview);
+
+// GET request to fetch history based on sessionId
+router.get('/:sessionId', getReviewHistory);
 
 module.exports = router;
