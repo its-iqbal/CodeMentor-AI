@@ -25,7 +25,7 @@ function App() {
         localStorage.setItem('codementor_session', sessionId);
       }
 
-      const response = await fetch('http://localhost:5000/api/review', {
+      const response = await fetch('https://codementor-ai-tb3l.onrender.com/api/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, language, sessionId })
@@ -55,7 +55,7 @@ function App() {
         return;
       }
 
-      const response = await fetch(`http://localhost:5000/api/review/${sessionId}`);
+      const response = await fetch(`https://codementor-ai-tb3l.onrender.com//api/review/${sessionId}`);
       if (!response.ok) throw new Error("Failed to fetch history");
       
       const data = await response.json();
