@@ -34,6 +34,11 @@ const reviewSchema = new mongoose.Schema({
     required: true,
     index: true // Speeds up queries when we fetch a user's history later
   },
+  userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: false // It's false so anonymous users can still use the app!
+    },
   language: {
     type: String,
     required: true,
