@@ -111,6 +111,39 @@ function App() {
     }
   };
 
+  const handleToggleBookmark = async () => {
+    if (!results || !results._id) return;
+    
+    // Toggle the current status
+    const newStatus = !results.isBookmarked;
+
+    try {
+      // 1. Optimistically update the UI immediately
+      setResults({ ...results, isBookmarked: newStatus });
+
+      // 2. Send the update to your backend
+      const response = await fetch(`http://localhost:5000/api/review/${results._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isBookmarked: newStatus })
+      });
+
+      if (!response.ok) throw new Error("Failed to update bookmark");
+      
+      // 3. If history is loaded, update it in the background too
+      setHistoryData(prev => prev.map(item => 
+        item._id === results._id ? { ...item, isBookmarked: newStatus } : item
+      ));
+
+    } catch (error) {
+      console.error("Error toggling bookmark:", error);
+      // Revert the UI if the database update failed
+      setResults({ ...results, isBookmarked: !newStatus });
+      alert("Failed to save bookmark.");
+    }
+  };
+  // -------------------------------------
+
   const getSeverityStyle = (severity) => {
     if (severity === 'high') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800/50';
     if (severity === 'medium') return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800/50';
@@ -147,6 +180,13 @@ function App() {
                   className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${currentView === 'history' ? 'bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                 >
                   History
+                </button>
+                {/* NEW: Library Tab */}
+                <button
+                  onClick={() => { fetchHistory(); setCurrentView('library'); }}
+                  className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${currentView === 'library' ? 'bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                >
+                  Bookmarks
                 </button>
               </div>
 
@@ -241,9 +281,21 @@ function App() {
 
               {/* RIGHT PANEL (Results) */}
               <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm dark:shadow-xl border border-slate-200 dark:border-slate-700/60 overflow-y-auto max-h-[700px]">
-                <h2 className="text-xl mb-6 font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                  Review Results
-                </h2>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    Review Results
+                  </h2>
+                  
+                  {/* NEW: Bookmark Button renders only when results exist */}
+                  {!isAnalyzing && results && (
+                    <button 
+                      onClick={handleToggleBookmark}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-all border shadow-sm ${results.isBookmarked ? 'bg-teal-100 text-teal-700 border-teal-300 dark:bg-teal-900/50 dark:text-teal-400 dark:border-teal-700' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-600 dark:hover:bg-slate-700'}`}
+                    >
+                      {results.isBookmarked ? '🔖 Saved' : '🔖 Bookmark'}
+                    </button>
+                  )}
+                </div>
 
                 {isAnalyzing && (
                   <div className="flex flex-col items-center justify-center h-48 space-y-4">
@@ -299,7 +351,7 @@ function App() {
               </div>
             </div>
           )}
-
+          
           {/* VIEW: HISTORY */}
           {currentView === 'history' && (
             <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm dark:shadow-xl border border-slate-200 dark:border-slate-700/60 min-h-[600px] animate-fadeIn">
@@ -320,6 +372,56 @@ function App() {
                       setResults(review);
                       setCurrentView('new');
                     }}>
+                      <div className="flex justify-between items-center mb-4">
+                        <span className="bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 px-2 py-1 text-xs font-mono rounded border border-slate-200 dark:border-slate-700 uppercase">
+                          {review.language}
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          {new Date(review.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="mb-4">
+                        <span className="text-3xl font-black text-slate-800 dark:text-slate-100">{review.score}</span>
+                        <span className="text-sm text-slate-500">/100</span>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-3">
+                        {review.summary}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+          )}
+
+          {/* VIEW: SAVED LIBRARY */}
+          {currentView === 'library' && (
+            <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm dark:shadow-xl border border-slate-200 dark:border-slate-700/60 min-h-[600px] animate-fadeIn">
+              <div className="flex items-center gap-3 mb-6">
+                <span className="text-3xl">🔖</span>
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Saved Snippets</h2>
+              </div>
+
+              {isLoadingHistory ? (
+                <div className="flex justify-center items-center h-48">
+                  <div className="w-8 h-8 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin"></div>
+                </div>
+              ) : historyData.filter(item => item.isBookmarked).length === 0 ? (
+                <div className="text-center text-slate-500 py-12">
+                  <p>You haven't bookmarked any code reviews yet.</p>
+                  <p className="text-sm mt-2">Open a review from your history and click "Bookmark" to save it here.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {historyData.filter(item => item.isBookmarked).map((review) => (
+                    <div key={review._id} className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-xl border border-teal-200 dark:border-teal-900/50 hover:border-teal-500 transition-colors cursor-pointer relative overflow-hidden" onClick={() => {
+                      setResults(review);
+                      setCurrentView('new');
+                    }}>
+                      {/* Decorative corner accent */}
+                      <div className="absolute -right-6 -top-6 w-12 h-12 bg-teal-500/20 rotate-45"></div>
+                      
                       <div className="flex justify-between items-center mb-4">
                         <span className="bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 px-2 py-1 text-xs font-mono rounded border border-slate-200 dark:border-slate-700 uppercase">
                           {review.language}

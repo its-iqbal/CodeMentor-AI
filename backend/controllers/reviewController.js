@@ -32,14 +32,16 @@ const getSystemInstructions = (isRetry) => {
 };
 
 // 1. OLLAMA ENGINE FLOW
-const fetchOllamaResponse = async (prompt, isRetry = false) => {
+// UPDATED: Now accepts a requestedModel parameter
+const fetchOllamaResponse = async (prompt, isRetry = false, requestedModel) => {
   const fullPrompt = `${getSystemInstructions(isRetry)}\n\nUSER PROMPT:\n${prompt}`;
+  const modelToUse = requestedModel || 'llama3:8b'; // Fallback to your local 8b
   
   const response = await fetch('http://localhost:11434/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'llama3:8b',
+      model: modelToUse, // Injecting the dynamic model here
       prompt: fullPrompt,
       format: 'json',
       stream: false
@@ -52,17 +54,19 @@ const fetchOllamaResponse = async (prompt, isRetry = false) => {
 };
 
 // 2. GROQ ENGINE FLOW
-const fetchGroqResponse = async (prompt, isRetry = false) => {
+// UPDATED: Now accepts a requestedModel parameter
+const fetchGroqResponse = async (prompt, isRetry = false, requestedModel) => {
   if (!groq) throw new Error("Groq API key missing in environment variables.");
+  
+  const modelToUse = requestedModel || 'llama-3.1-8b-instant'; // Fallback
 
-  // Groq supports the official chat completion format natively
   const chatCompletion = await groq.chat.completions.create({
     messages: [
       { role: "system", content: getSystemInstructions(isRetry) },
       { role: "user", content: prompt }
     ],
-    model: "llama-3.1-8b-instant", // Using the equivalent ultra-fast Llama 3 model on Groq
-    response_format: { type: "json_object" } // Strict JSON enforcement parameter
+    model: modelToUse, // Injecting the dynamic model here
+    response_format: { type: "json_object" } 
   });
 
   return chatCompletion.choices[0].message.content;
@@ -71,7 +75,8 @@ const fetchGroqResponse = async (prompt, isRetry = false) => {
 // Main controller orchestration entrypoint
 const createReview = async (req, res) => {
   try {
-    const { code, language, sessionId } = req.body;
+    // UPDATED: Extract the model string sent from the React dropdown
+    const { code, language, sessionId, model } = req.body;
     const provider = process.env.AI_PROVIDER || 'ollama';
 
     if (!code || !language) {
@@ -82,16 +87,17 @@ const createReview = async (req, res) => {
     let aiRawResponse;
     let parsedData;
 
-    // Pick the engine pipeline dynamically based on environment variable
     const fetchAIResponse = provider === 'groq' ? fetchGroqResponse : fetchOllamaResponse;
 
     try {
-      console.log(`🤖 Route hitting active AI provider: [${provider.toUpperCase()}]`);
-      aiRawResponse = await fetchAIResponse(aiPrompt);
+      console.log(`Route hitting active AI provider: [${provider.toUpperCase()}] with model: [${model || 'default'}]`);
+      // UPDATED: Pass the requested model to the fetch function
+      aiRawResponse = await fetchAIResponse(aiPrompt, false, model);
       parsedData = JSON.parse(aiRawResponse);
     } catch (firstError) {
-      console.warn(`⚠️ First parsing attempt failed via ${provider}, running fallback retry...`);
-      aiRawResponse = await fetchAIResponse(aiPrompt, true);
+      console.warn(`First parsing attempt failed via ${provider}, running fallback retry...`);
+      // UPDATED: Pass the requested model to the retry fetch function too
+      aiRawResponse = await fetchAIResponse(aiPrompt, true, model);
       parsedData = JSON.parse(aiRawResponse);
     }
 
@@ -112,7 +118,7 @@ const createReview = async (req, res) => {
     res.status(201).json(savedReview);
 
   } catch (error) {
-    console.error("❌ Error processing AI review:", error);
+    console.error("Error processing AI review:", error);
     res.status(500).json({ error: "Failed to process code review. Ensure selected engine is active." });
   }
 };
@@ -123,9 +129,37 @@ const getReviewHistory = async (req, res) => {
     const history = await Review.find({ sessionId }).sort({ createdAt: -1 });
     res.status(200).json(history);
   } catch (error) {
-    console.error("❌ Error fetching history:", error);
+    console.error("Error fetching history:", error);
     res.status(500).json({ error: "Failed to fetch review history" });
   }
 };
 
-module.exports = { createReview, getReviewHistory };
+// NEW: Update an existing review (Bookmark / Add Tags)
+const updateReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isBookmarked, tags } = req.body;
+
+    // Find the review by ID and update the provided fields
+    const updatedReview = await Review.findByIdAndUpdate(
+      id,
+      { 
+        // Only update fields that were actually sent in the request
+        ...(isBookmarked !== undefined && { isBookmarked }),
+        ...(tags !== undefined && { tags })
+      },
+      { new: true } // Return the updated document, not the old one
+    );
+
+    if (!updatedReview) {
+      return res.status(404).json({ error: "Review not found" });
+    }
+
+    res.status(200).json(updatedReview);
+  } catch (error) {
+    console.error("Error updating review:", error);
+    res.status(500).json({ error: "Failed to update review" });
+  }
+};
+
+module.exports = { createReview, getReviewHistory, updateReview };

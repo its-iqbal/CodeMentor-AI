@@ -29,41 +29,43 @@ const issueSchema = new mongoose.Schema({
 
 // Define the main Review schema
 const reviewSchema = new mongoose.Schema({
-  sessionId: {
-    type: String,
-    required: true,
-    index: true // Speeds up queries when we fetch a user's history later
-  },
-  userId: {
+    sessionId: {
+        type: String,
+        required: true
+    },
+    userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: false // It's false so anonymous users can still use the app!
+        required: false 
     },
-  language: {
-    type: String,
-    required: true,
-    enum: ['javascript', 'python', 'cpp', 'csharp', 'dart']
-  },
-  code: {
-    type: String,
-    required: true,
-    maxLength: 5000 // Protects against huge payloads eating up AI context limits
-  },
-  score: {
-    type: Number,
-    required: true,
-    min: 0,
-    max: 100
-  },
-  summary: {
-    type: String,
-    required: true
-  },
-  issues: [issueSchema], // Embedding our sub-schema here
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
+    language: {
+        type: String,
+        required: true
+    },
+    code: {
+        type: String,
+        required: true
+    },
+    score: {
+        type: Number,
+        required: true
+    },
+    summary: {
+        type: String,
+        required: true
+    },
+    issues: {
+        type: [issueSchema],
+        default: []
+    },
+    isBookmarked: {
+        type: Boolean,
+        default: false
+    },
+    tags: {
+        type: [String],
+        default: []
+    }
+}, { timestamps: true });
 
 module.exports = mongoose.model('Review', reviewSchema);
